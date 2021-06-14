@@ -1,10 +1,10 @@
 # Gentypes
 
-> 这是什么？
+## 这是什么？
 
 Gentypes 是基于 [quicktype](https://quicktype.io/) 封装的在项目中可以根据后端接口快速生成 [interface].ts 文件的工具（CLI）。
 
-> 解决什么？
+## 解决什么？
 
 1. 我们的项目是基于 ts 的，所以合适。
 2. 在我们日常编码中经常需要手动去声明接口相关的 interface，这个 CLI 可以帮助我们生成/更新相关的 interface。
@@ -29,7 +29,7 @@ yarn add gentypes
 
 ## Tips
 
-> 为什么我的 .gentypesrc 文件没有 json 提示？
+### 为什么我的 .gentypesrc 文件没有 json 提示？
 
 以 vscode 为例：
 
