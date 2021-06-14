@@ -1,5 +1,9 @@
 # Gentypes
 
+## BIG PROBLEMS
+
+现在的问题是无法对被依赖项目的根目录（package.json所在的目录）进行文件操作，或者说是获取不到该层目录。
+
 ## 这是什么？
 
 Gentypes 是基于 [quicktype](https://quicktype.io/) 封装的在项目中可以根据后端接口快速生成 [interface].ts 文件的工具（CLI）。
