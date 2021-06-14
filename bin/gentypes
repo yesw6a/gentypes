@@ -1,0 +1,177 @@
+#! /usr/bin/env node
+
+const fs = require('fs');
+const figlet = require('figlet');
+const Printer = require('@darkobits/lolcatjs');
+const { program } = require('commander');
+const inquirer = require('inquirer');
+const process = require('child_process');
+const appRoot = require('app-root-path');
+console.log("🚀 ~ file: gentypes ~ line 10 ~ appRoot", appRoot)
+
+const quicktypeJSON = require('../lib/quicktypeJSON');
+const fetch = require('../lib/fetch');
+const { isJson, valueFindObject } = require('../utils');
+
+const versionStr = figlet.textSync('GEN-TYPES');
+const _version = require('../package.json').version;
+const configPath = `${appRoot}/.gentypesrc`;
+
+// 创建声明文件
+const genInterface = async (name, source) => {
+  let s = source;
+  try {
+    s = JSON.parse(source);
+  } catch (error) {}
+  const { lines } = await quicktypeJSON('ts', name, JSON.stringify(s));
+  const data = lines.join('\n');
+  // 读取配置文件内容
+  try {
+    fs.statSync(configPath);
+    const file = fs.readFileSync(configPath, 'utf8');
+    let configJsonObj = {};
+    try {
+      configJsonObj = JSON.parse(file);
+      if (!isJson(configJsonObj)) throw new Error();
+      // 输出 interface
+      const { outputPath } = configJsonObj;
+      try {
+        fs.statSync(outputPath);
+      } catch (error) {
+        fs.mkdirSync(outputPath);
+      }
+      const writerStream = fs.createWriteStream(`${outputPath}/${name}.ts`);
+      writerStream.write(data);
+      writerStream.end();
+    } catch (error) {
+      console.log('配置不是一个json文件');
+    }
+  } catch (error) {}
+};
+
+// 输出版本信息
+program.version(
+  Printer.default.fromString(
+    `     \n               快速生成Interface v${_version}\n${versionStr}`
+  )
+);
+
+// 通过 fetch 获取数据
+const fetchData = async (url, options) => {
+  let res = null;
+  try {
+    res = await fetch(url, options);
+  } catch (error) {
+    throw new Error(error);
+  }
+  if (!res) throw new Error('res is not valid.');
+};
+
+// 指令集
+program
+  .option('-n, --name <name>', '指定接口名')
+  .option('-d, --data [data]', '需要生成声明文件的数据')
+  .option('-url, --api_url [api_url]', '指定接口请求地址')
+  .option('-o, --api_options [api_options]', '指定接口选项')
+  .action(async (options) => {
+    const { name, data, api_url, api_options } = options;
+    if (Object.values(options).every((v) => !!v)) return;
+    if (!name) throw new Error('接口名不能为空');
+    if (!api_url && !data) throw new Error('接口请求地址或数据不能为空');
+
+    const d = data || (await fetchData(api_url, api_options));
+
+    genInterface(name, d);
+  });
+
+// 配置配置
+const configPrompts = [
+  {
+    type: 'checkbox',
+    name: 'options',
+    message: '请选择需要配置的选项: ',
+    choices: ['outputPath', 'proxy'],
+  },
+];
+const configPrompts2 = [
+  {
+    type: 'input',
+    name: 'outputPath',
+    message: '请输入声明文件的输出路径: ',
+  },
+  {
+    type: 'editor',
+    name: 'proxy',
+    message: '请输入代理地址相关内容',
+    default: `{
+  "target": "",
+  "reg": ""
+}`,
+  },
+  // {
+  //   type: 'input',
+  //   name: 'proxyTarget',
+  //   message: '请输入需要代理的目标地址: ',
+  // },
+  // {
+  //   type: 'input',
+  //   name: 'proxyReg',
+  //   message: '请输入代理规则（正则）: ',
+  // },
+];
+program.command('config').action(async () => {
+  const { options } = await inquirer.prompt(configPrompts);
+  if (!options.length) throw new Error('请选择至少一个配置项');
+  const p2 = valueFindObject(configPrompts2, options, 'name');
+  const configs = await inquirer.prompt(p2);
+  let configJsonObj = {};
+
+  const { proxy } = configs;
+  if (proxy) {
+    configs.proxy = JSON.parse(proxy);
+  }
+
+  try {
+    fs.statSync(configPath);
+    const file = fs.readFileSync(configPath, 'utf8');
+    try {
+      configJsonObj = JSON.parse(file);
+      if (!isJson(configJsonObj)) throw new Error();
+      Object.assign(configJsonObj, configs);
+    } catch (error) {
+      console.log('配置不是一个json文件');
+    }
+  } catch (error) {}
+  const configJsonStr = JSON.stringify(configJsonObj, null, '\t');
+  const writerStream = fs.createWriteStream(configPath);
+  writerStream.write(configJsonStr);
+  writerStream.end();
+});
+
+const curlPrompts = [
+  {
+    type: 'input',
+    name: 'name',
+    message: '请输入声明文件名称',
+  },
+  {
+    type: 'editor',
+    name: 'cURL',
+    message: '请输入cURL',
+  },
+];
+// 通过cURL生成声明文件
+program.command('curl').action(async () => {
+  const { name, cURL } = await inquirer.prompt(curlPrompts);
+  if (!name) throw new Error('接口名不能为空');
+  if (!cURL) throw new Error('cURL不能为空');
+
+  process.exec(`curl ${cURL}`, (error, stdout) => {
+    if (error !== null) {
+      throw new Error(error);
+    }
+    genInterface(name, stdout);
+  });
+});
+
+program.parse(process.argv);
