@@ -19,8 +19,8 @@ const _version = require('../package.json').version;
 // 输出版本信息
 program.version(
   Printer.default.fromString(
-    `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`,
-  ),
+    `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`
+  )
 );
 
 const basePath = path.resolve(process.cwd());
@@ -31,10 +31,11 @@ const configPath = `${basePath}/${configFileName}`;
 const genInterface = async (name, source) => {
   let s = source;
   try {
-    const parser = JSON.parse(source);
+    const parser = JSON.stringify(source);
     s = parser;
   } catch (error) {}
-  const { lines } = await quicktypeJSON('ts', name, JSON.stringify(s));
+  console.log('s', typeof s, s);
+  const { lines } = await quicktypeJSON('ts', name, s);
   const data = lines.join('\n');
   // 读取配置文件内容
   try {
@@ -64,17 +65,6 @@ const genInterface = async (name, source) => {
   }
 };
 
-// 通过 fetch 获取数据
-const fetchData = async (url, options) => {
-  let res = null;
-  try {
-    res = await fetch(url, options);
-  } catch (error) {
-    throw new Error(error);
-  }
-  if (!res) throw new Error('res is not valid.');
-};
-
 // 指令集
 program
   .option('-n, --name <name>', '指定接口名')
@@ -87,7 +77,7 @@ program
     if (!name) throw new Error('接口名不能为空');
     if (!api_url && !data) throw new Error('接口请求地址或数据不能为空');
 
-    const d = data || (await fetchData(api_url, api_options));
+    const d = data || (await fetch(api_url, api_options));
 
     genInterface(name, d);
   });
@@ -133,7 +123,9 @@ program
       } catch (error) {
         console.log('配置不是一个json文件');
       }
-    } catch (error) {}
+    } catch (error) {
+      configJsonObj = configs;
+    }
     const configJsonStr = JSON.stringify(configJsonObj, null, '\t');
     const writerStream = fs.createWriteStream(configPath);
     writerStream.write(configJsonStr);
