@@ -6,7 +6,6 @@
   "bin": "bin/gentypes",
   "dependencies": {
     "@darkobits/lolcatjs": "^3.1.3",
-    "app-root-path": "^3.0.0",
     "commander": "^7.2.0",
     "figlet": "^1.5.0",
     "inquirer": "^8.1.0",

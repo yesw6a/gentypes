@@ -5,9 +5,9 @@ const figlet = require('figlet');
 const Printer = require('@darkobits/lolcatjs');
 const { program } = require('commander');
 const inquirer = require('inquirer');
-const process = require('child_process');
-const appRoot = require('app-root-path');
-console.log("🚀 ~ file: gentypes ~ line 10 ~ appRoot", appRoot)
+const cp = require('child_process');
+const process = require('process');
+const path = require('path');
 
 const quicktypeJSON = require('../lib/quicktypeJSON');
 const fetch = require('../lib/fetch');
@@ -15,13 +15,24 @@ const { isJson, valueFindObject } = require('../utils');
 
 const versionStr = figlet.textSync('GEN-TYPES');
 const _version = require('../package.json').version;
-const configPath = `${appRoot}/.gentypesrc`;
+
+// 输出版本信息
+program.version(
+  Printer.default.fromString(
+    `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`,
+  ),
+);
+
+const basePath = path.resolve(process.cwd());
+const configFileName = 'gentypes.json';
+const configPath = `${basePath}/${configFileName}`;
 
 // 创建声明文件
 const genInterface = async (name, source) => {
   let s = source;
   try {
-    s = JSON.parse(source);
+    const parser = JSON.parse(source);
+    s = parser;
   } catch (error) {}
   const { lines } = await quicktypeJSON('ts', name, JSON.stringify(s));
   const data = lines.join('\n');
@@ -34,27 +45,24 @@ const genInterface = async (name, source) => {
       configJsonObj = JSON.parse(file);
       if (!isJson(configJsonObj)) throw new Error();
       // 输出 interface
-      const { outputPath } = configJsonObj;
+      const { outputPath: op } = configJsonObj;
+      const filePath = `${op}/${name}.ts`;
       try {
-        fs.statSync(outputPath);
+        fs.statSync(op);
       } catch (error) {
-        fs.mkdirSync(outputPath);
+        fs.mkdirSync(op);
       }
-      const writerStream = fs.createWriteStream(`${outputPath}/${name}.ts`);
+      const writerStream = fs.createWriteStream(filePath);
       writerStream.write(data);
       writerStream.end();
+      console.log(`📝 接口已生成：${filePath}`);
     } catch (error) {
       console.log('配置不是一个json文件');
     }
-  } catch (error) {}
+  } catch (error) {
+    console.log(`请先配置${configFileName}`);
+  }
 };
-
-// 输出版本信息
-program.version(
-  Printer.default.fromString(
-    `     \n               快速生成Interface v${_version}\n${versionStr}`
-  )
-);
 
 // 通过 fetch 获取数据
 const fetchData = async (url, options) => {
@@ -75,7 +83,7 @@ program
   .option('-o, --api_options [api_options]', '指定接口选项')
   .action(async (options) => {
     const { name, data, api_url, api_options } = options;
-    if (Object.values(options).every((v) => !!v)) return;
+    if (!Object.keys(options).length) throw new Error('请选择正确的指令');
     if (!name) throw new Error('接口名不能为空');
     if (!api_url && !data) throw new Error('接口请求地址或数据不能为空');
 
@@ -90,7 +98,7 @@ const configPrompts = [
     type: 'checkbox',
     name: 'options',
     message: '请选择需要配置的选项: ',
-    choices: ['outputPath', 'proxy'],
+    choices: ['outputPath'],
   },
 ];
 const configPrompts2 = [
@@ -99,54 +107,39 @@ const configPrompts2 = [
     name: 'outputPath',
     message: '请输入声明文件的输出路径: ',
   },
-  {
-    type: 'editor',
-    name: 'proxy',
-    message: '请输入代理地址相关内容',
-    default: `{
-  "target": "",
-  "reg": ""
-}`,
-  },
-  // {
-  //   type: 'input',
-  //   name: 'proxyTarget',
-  //   message: '请输入需要代理的目标地址: ',
-  // },
-  // {
-  //   type: 'input',
-  //   name: 'proxyReg',
-  //   message: '请输入代理规则（正则）: ',
-  // },
 ];
-program.command('config').action(async () => {
-  const { options } = await inquirer.prompt(configPrompts);
-  if (!options.length) throw new Error('请选择至少一个配置项');
-  const p2 = valueFindObject(configPrompts2, options, 'name');
-  const configs = await inquirer.prompt(p2);
-  let configJsonObj = {};
+program
+  .command('config')
+  .description('生成/修改配置文件')
+  .action(async () => {
+    const { options } = await inquirer.prompt(configPrompts);
+    if (!options.length) throw new Error('请选择至少一个配置项');
+    const p2 = valueFindObject(configPrompts2, options, 'name');
+    const configs = await inquirer.prompt(p2);
+    let configJsonObj = {};
 
-  const { proxy } = configs;
-  if (proxy) {
-    configs.proxy = JSON.parse(proxy);
-  }
-
-  try {
-    fs.statSync(configPath);
-    const file = fs.readFileSync(configPath, 'utf8');
-    try {
-      configJsonObj = JSON.parse(file);
-      if (!isJson(configJsonObj)) throw new Error();
-      Object.assign(configJsonObj, configs);
-    } catch (error) {
-      console.log('配置不是一个json文件');
+    const { proxy } = configs;
+    if (proxy) {
+      configs.proxy = JSON.parse(proxy);
     }
-  } catch (error) {}
-  const configJsonStr = JSON.stringify(configJsonObj, null, '\t');
-  const writerStream = fs.createWriteStream(configPath);
-  writerStream.write(configJsonStr);
-  writerStream.end();
-});
+
+    try {
+      fs.statSync(configPath);
+      const file = fs.readFileSync(configPath, 'utf8');
+      try {
+        configJsonObj = JSON.parse(file);
+        if (!isJson(configJsonObj)) throw new Error();
+        Object.assign(configJsonObj, configs);
+      } catch (error) {
+        console.log('配置不是一个json文件');
+      }
+    } catch (error) {}
+    const configJsonStr = JSON.stringify(configJsonObj, null, '\t');
+    const writerStream = fs.createWriteStream(configPath);
+    writerStream.write(configJsonStr);
+    writerStream.end();
+    console.log(`🌟 配置完成，请在 ${configPath} 中查看配置`);
+  });
 
 const curlPrompts = [
   {
@@ -161,17 +154,20 @@ const curlPrompts = [
   },
 ];
 // 通过cURL生成声明文件
-program.command('curl').action(async () => {
-  const { name, cURL } = await inquirer.prompt(curlPrompts);
-  if (!name) throw new Error('接口名不能为空');
-  if (!cURL) throw new Error('cURL不能为空');
+program
+  .command('curl')
+  .description('通过cURL生成声明文件')
+  .action(async () => {
+    const { name, cURL } = await inquirer.prompt(curlPrompts);
+    if (!name) throw new Error('接口名不能为空');
+    if (!cURL) throw new Error('cURL不能为空');
 
-  process.exec(`curl ${cURL}`, (error, stdout) => {
-    if (error !== null) {
-      throw new Error(error);
-    }
-    genInterface(name, stdout);
+    cp.exec(`curl ${cURL}`, (error, stdout) => {
+      if (error !== null) {
+        throw new Error(error);
+      }
+      genInterface(name, stdout);
+    });
   });
-});
 
-program.parse(process.argv);
+program.parse(cp.argv);
