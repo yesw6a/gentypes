@@ -1,12 +1,16 @@
 {
-  "name": "gentypes",
-  "version": "0.0.1",
+  "name": "@wuhuanda/gentypes",
+  "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "bin": "bin/gentypes",
   "repository": {
     "type": "git",
     "url": "https://github.com/wuhuanda/gentypes"
+  },
+  "bugs": {
+    "url": "https://github.com/wuhuanda/gentypes/issues",
+    "email": "583783099@qq.com"
   },
   "keywords": [
     "typescript",
