@@ -4,6 +4,19 @@
   "main": "index.js",
   "license": "MIT",
   "bin": "bin/gentypes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wuhuanda/gentypes"
+  },
+  "keywords": [
+    "typescript",
+    "interface",
+    "quicktype"
+  ],
+  "author": {
+    "name": "wuhuanda",
+    "email": "583783099@qq.com"
+  },
   "dependencies": {
     "@darkobits/lolcatjs": "^3.1.3",
     "commander": "^7.2.0",
