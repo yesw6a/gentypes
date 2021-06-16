@@ -22,7 +22,7 @@ yarn add gentypes
 - fetch_api
 - cURL
 
-## 配置项
+## gentypes.json
 
 - outputPath
-- proxyPath
+- debug 

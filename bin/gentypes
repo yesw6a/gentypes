@@ -6,12 +6,18 @@ const Printer = require('@darkobits/lolcatjs');
 const { program } = require('commander');
 const inquirer = require('inquirer');
 const cp = require('child_process');
-const process = require('process');
-const path = require('path');
 
 const quicktypeJSON = require('../lib/quicktypeJSON');
 const fetch = require('../lib/fetch');
 const { isJson, valueFindObject } = require('../utils');
+const {
+  CONFIG_FILE_NAME,
+  CONFIG_PATH,
+  PROMPTS_CONFIG_OPTIONS,
+  PROMPTS_CONFIG,
+  PROMPTS_CURL,
+  PROMPTS_DATA,
+} = require('../utils/constants');
 
 const versionStr = figlet.textSync('GEN-TYPES');
 const _version = require('../package.json').version;
@@ -19,32 +25,32 @@ const _version = require('../package.json').version;
 // 输出版本信息
 program.version(
   Printer.default.fromString(
-    `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`
-  )
+    `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`,
+  ),
 );
-
-const basePath = path.resolve(process.cwd());
-const configFileName = 'gentypes.json';
-const configPath = `${basePath}/${configFileName}`;
 
 // 创建声明文件
 const genInterface = async (name, source) => {
   let s = source;
   try {
-    const parser = JSON.stringify(source);
-    s = parser;
+    if (typeof s !== 'string') {
+      const parser = JSON.stringify(source);
+      s = parser;
+    }
   } catch (error) {}
-  console.log('s', typeof s, s);
   const { lines } = await quicktypeJSON('ts', name, s);
   const data = lines.join('\n');
   // 读取配置文件内容
   try {
-    fs.statSync(configPath);
-    const file = fs.readFileSync(configPath, 'utf8');
+    fs.statSync(CONFIG_PATH);
+    const file = fs.readFileSync(CONFIG_PATH, 'utf8');
     let configJsonObj = {};
     try {
       configJsonObj = JSON.parse(file);
       if (!isJson(configJsonObj)) throw new Error();
+      if (configJsonObj.debug) {
+        console.log(`[ DEBUG ]\n参数: s\n类型: ${typeof s}\n值: ${s}`);
+      }
       // 输出 interface
       const { outputPath: op } = configJsonObj;
       const filePath = `${op}/${name}.ts`;
@@ -61,50 +67,18 @@ const genInterface = async (name, source) => {
       console.log('配置不是一个json文件');
     }
   } catch (error) {
-    console.log(`请先配置${configFileName}`);
+    console.log(`请先配置${CONFIG_FILE_NAME}`);
   }
 };
 
-// 指令集
-program
-  .option('-n, --name <name>', '指定接口名')
-  .option('-d, --data [data]', '需要生成声明文件的数据')
-  .option('-url, --api_url [api_url]', '指定接口请求地址')
-  .option('-o, --api_options [api_options]', '指定接口选项')
-  .action(async (options) => {
-    const { name, data, api_url, api_options } = options;
-    if (!Object.keys(options).length) throw new Error('请选择正确的指令');
-    if (!name) throw new Error('接口名不能为空');
-    if (!api_url && !data) throw new Error('接口请求地址或数据不能为空');
-
-    const d = data || (await fetch(api_url, api_options));
-
-    genInterface(name, d);
-  });
-
-// 配置配置
-const configPrompts = [
-  {
-    type: 'checkbox',
-    name: 'options',
-    message: '请选择需要配置的选项: ',
-    choices: ['outputPath'],
-  },
-];
-const configPrompts2 = [
-  {
-    type: 'input',
-    name: 'outputPath',
-    message: '请输入声明文件的输出路径: ',
-  },
-];
+// 生成/修改配置
 program
   .command('config')
   .description('生成/修改配置文件')
   .action(async () => {
-    const { options } = await inquirer.prompt(configPrompts);
+    const { options } = await inquirer.prompt(PROMPTS_CONFIG_OPTIONS);
     if (!options.length) throw new Error('请选择至少一个配置项');
-    const p2 = valueFindObject(configPrompts2, options, 'name');
+    const p2 = valueFindObject(PROMPTS_CONFIG, options, 'name');
     const configs = await inquirer.prompt(p2);
     let configJsonObj = {};
 
@@ -114,8 +88,8 @@ program
     }
 
     try {
-      fs.statSync(configPath);
-      const file = fs.readFileSync(configPath, 'utf8');
+      fs.statSync(CONFIG_PATH);
+      const file = fs.readFileSync(CONFIG_PATH, 'utf8');
       try {
         configJsonObj = JSON.parse(file);
         if (!isJson(configJsonObj)) throw new Error();
@@ -127,34 +101,50 @@ program
       configJsonObj = configs;
     }
     const configJsonStr = JSON.stringify(configJsonObj, null, '\t');
-    const writerStream = fs.createWriteStream(configPath);
+    const writerStream = fs.createWriteStream(CONFIG_PATH);
     writerStream.write(configJsonStr);
     writerStream.end();
-    console.log(`🌟 配置完成，请在 ${configPath} 中查看配置`);
+    console.log(`🌟 配置完成，请在 ${CONFIG_PATH} 中查看配置`);
   });
 
-const curlPrompts = [
-  {
-    type: 'input',
-    name: 'name',
-    message: '请输入声明文件名称',
-  },
-  {
-    type: 'editor',
-    name: 'cURL',
-    message: '请输入cURL',
-  },
-];
+// 指令集
+program
+  .option('-n, --name <name>', '指定接口名')
+  .option('-url, --api_url [api_url]', '指定接口请求地址')
+  .option('-o, --api_options [api_options]', '指定接口选项')
+  .action(async (options) => {
+    const { name, api_url, api_options } = options;
+    if (!Object.keys(options).length) throw new Error('请选择正确的指令');
+    if (!name) throw new Error('接口名不能为空');
+    if (!api_url) throw new Error('接口请求地址或数据不能为空');
+
+    const res = await fetch(api_url, api_options);
+
+    genInterface(name, res);
+  });
+
+// 通过cURL生成声明文件
+program
+  .command('data')
+  .description('通过data生成声明文件')
+  .action(async () => {
+    const { name, data } = await inquirer.prompt(PROMPTS_DATA);
+    if (!name) throw new Error('接口名不能为空');
+    if (!data) throw new Error('data不能为空');
+
+    genInterface(name, data);
+  });
+
 // 通过cURL生成声明文件
 program
   .command('curl')
   .description('通过cURL生成声明文件')
   .action(async () => {
-    const { name, cURL } = await inquirer.prompt(curlPrompts);
+    const { name, cURL } = await inquirer.prompt(PROMPTS_CURL);
     if (!name) throw new Error('接口名不能为空');
     if (!cURL) throw new Error('cURL不能为空');
 
-    cp.exec(`curl ${cURL}`, (error, stdout) => {
+    cp.exec(cURL, (error, stdout) => {
       if (error !== null) {
         throw new Error(error);
       }
