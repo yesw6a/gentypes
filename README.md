@@ -17,7 +17,7 @@ Gentypes 是基于 [quicktype](https://quicktype.io/) 封装的在项目中可�
 ## 安装
 
 ```bash
-yarn add gentypes
+yarn global add @wuhuanda/gentypes
 ```
 
 ## 使用
