@@ -1,7 +1,5 @@
 # Gentypes
 
-## 这是什么？
-
 Gentypes 是基于 [quicktype](https://quicktype.io/) 封装的在项目中可以根据后端接口快速生成 [interface].ts 文件的工具（CLI）。
 
 ## 解决什么？
@@ -24,14 +22,42 @@ yarn add gentypes
 
 ## 使用
 
-### 创建 gentypes.json 文件
+### 创建 `gentypes.json` 文件
+
+在项目根目录创建或者通过 `gentypes config` 指令创建\更新 `gentypes.json` 文件。
+
+### gentypes.json
+
+- outputPath
+
+  声明文件输出路径
+
+- debug
+
+  打开调试模式
+
+### 生成声明文件
 
 目前支持三种方式生成对应的声明文件：
+
 - data
 - fetch_api
 - cURL
 
-## gentypes.json
+#### data
 
-- outputPath
-- debug 
+```sh
+gentypes data
+```
+
+#### fetch_api
+
+```sh
+gentypes -n api_name -url https://xxxxxx.com/api/
+```
+
+#### cURL
+
+```sh
+gentypes cURL
+```
