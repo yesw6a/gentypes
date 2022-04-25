@@ -24,7 +24,7 @@ const _version = require('../package.json').version;
 
 // 输出版本信息
 program.version(
-  Printer.default.fromString(
+  Printer.fromString(
     `     \n               快速生成接口声明文件 v${_version}\n${versionStr}`,
   ),
 );
